@@ -8,6 +8,7 @@ version = 0.1
 requirements = python3,kivy==2.1.0,pyjnius
 orientation = portrait
 fullscreen = 0
+android.accept_sdk_license = True
 
 [buildozer]
 log_level = 2
