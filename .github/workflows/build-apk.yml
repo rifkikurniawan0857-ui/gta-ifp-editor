@@ -38,6 +38,8 @@ jobs:
         mv cmdline-tools android-sdk/cmdline-tools/latest
         export ANDROID_HOME=/home/runner/.buildozer/android/platform/android-sdk
         export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH
+        echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
+        echo "PATH=$PATH" >> $GITHUB_ENV
         # Accept licenses
         yes | sdkmanager --licenses || true
         
