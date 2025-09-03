@@ -18,10 +18,16 @@ jobs:
       with:
         python-version: '3.8'
         
-    - name: Install dependencies
+    - name: Install Android SDK and dependencies
       run: |
         sudo apt-get update
+        # Install Android build tools and dependencies
         sudo apt-get install -y build-essential libffi-dev libssl-dev libxml2-dev libxslt1-dev libjpeg8-dev zlib1g-dev git wget unzip
+        # Additional packages needed for Android build
+        sudo apt-get install -y libc6-dev-i386 lib32stdc++6 lib32z1
+        
+    - name: Install Python dependencies
+      run: |
         pip install --upgrade pip
         pip install Cython==0.29.30
         pip install pygame
