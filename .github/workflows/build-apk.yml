@@ -32,11 +32,11 @@ jobs:
       run: |
         cd ${{ github.workspace }}
         # Ensure SDK license acceptance is set in buildozer.spec
-        grep -q "android.accept_sdk_license" buildozer.spec && sed -i 's/android.accept_sdk_license = .*/android.accept_sdk_license = True/g' buildozer.spec || echo "android.accept_sdk_license = True" >> buildozer.spec
-        # Add SDK and NDK paths to buildozer.spec
-        echo "" >> buildozer.spec
-        echo "[buildozer]" >> buildozer.spec
-        echo "log_level = 2" >> buildozer.spec
+        if grep -q "android.accept_sdk_license" buildozer.spec; then
+          sed -i 's/android.accept_sdk_license = .*/android.accept_sdk_license = True/g' buildozer.spec
+        else
+          sed -i '/^\[app\]/a android.accept_sdk_license = True' buildozer.spec
+        fi
         
     - name: Build APK
       run: |
