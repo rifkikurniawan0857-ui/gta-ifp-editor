@@ -41,12 +41,11 @@ jobs:
         # Accept licenses
         yes | sdkmanager --licenses || true
         
-    - name: Initialize Buildozer
+    - name: Update buildozer.spec for SDK license acceptance
       run: |
         cd ${{ github.workspace }}
-        buildozer init
-        # Update buildozer.spec to accept SDK licenses
-        sed -i 's/android.accept_sdk_license = False/android.accept_sdk_license = True/g' buildozer.spec || echo "android.accept_sdk_license = True" >> buildozer.spec
+        # Ensure SDK license acceptance is set in buildozer.spec
+        grep -q "android.accept_sdk_license" buildozer.spec && sed -i 's/android.accept_sdk_license = .*/android.accept_sdk_license = True/g' buildozer.spec || echo "android.accept_sdk_license = True" >> buildozer.spec
         
     - name: Build APK
       run: |
