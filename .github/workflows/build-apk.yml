@@ -38,6 +38,15 @@ jobs:
         mv cmdline-tools android-sdk/cmdline-tools/latest
         export ANDROID_HOME=/home/runner/.buildozer/android/platform/android-sdk
         export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH
+        # Accept licenses
+        yes | sdkmanager --licenses || true
+        
+    - name: Initialize Buildozer
+      run: |
+        cd ${{ github.workspace }}
+        buildozer init
+        # Update buildozer.spec to accept SDK licenses
+        sed -i 's/android.accept_sdk_license = False/android.accept_sdk_license = True/g' buildozer.spec || echo "android.accept_sdk_license = True" >> buildozer.spec
         
     - name: Build APK
       run: |
