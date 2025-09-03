@@ -28,31 +28,21 @@ jobs:
         pip install kivy==2.1.0
         pip install buildozer==1.5.0
         
-    - name: Setup Android SDK
-      run: |
-        mkdir -p /home/runner/.buildozer/android/platform
-        cd /home/runner/.buildozer/android/platform
-        wget https://dl.google.com/android/repository/commandlinetools-linux-8512546_latest.zip
-        unzip commandlinetools-linux-8512546_latest.zip
-        mkdir -p android-sdk/cmdline-tools
-        mv cmdline-tools android-sdk/cmdline-tools/latest
-        export ANDROID_HOME=/home/runner/.buildozer/android/platform/android-sdk
-        export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH
-        echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
-        echo "PATH=$PATH" >> $GITHUB_ENV
-        # Accept licenses
-        yes | sdkmanager --licenses || true
-        
-    - name: Update buildozer.spec for SDK license acceptance
+    - name: Prepare buildozer.spec
       run: |
         cd ${{ github.workspace }}
         # Ensure SDK license acceptance is set in buildozer.spec
         grep -q "android.accept_sdk_license" buildozer.spec && sed -i 's/android.accept_sdk_license = .*/android.accept_sdk_license = True/g' buildozer.spec || echo "android.accept_sdk_license = True" >> buildozer.spec
+        # Add SDK and NDK paths to buildozer.spec
+        echo "" >> buildozer.spec
+        echo "[buildozer]" >> buildozer.spec
+        echo "log_level = 2" >> buildozer.spec
         
     - name: Build APK
       run: |
         cd ${{ github.workspace }}
-        buildozer android debug
+        # Let buildozer install SDK automatically
+        buildozer android debug --verbose
         
     - name: Upload APK
       uses: actions/upload-artifact@v4
