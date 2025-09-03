@@ -35,13 +35,19 @@ jobs:
         if grep -q "android.accept_sdk_license" buildozer.spec; then
           sed -i 's/android.accept_sdk_license = .*/android.accept_sdk_license = True/g' buildozer.spec
         else
-          sed -i '/^\[app\]/a android.accept_sdk_license = True' buildozer.spec
+          sed -i '/^\[app@debug\]/a android.accept_sdk_license = True' buildozer.spec
         fi
+        
+    - name: Clean previous builds
+      run: |
+        cd ${{ github.workspace }}
+        rm -rf .buildozer/android/platform/build-*
+        rm -rf .buildozer/android/platform/android-*
         
     - name: Build APK
       run: |
         cd ${{ github.workspace }}
-        # Let buildozer install SDK automatically
+        # Let buildozer install SDK automatically with specific NDK
         buildozer android debug --verbose
         
     - name: Upload APK
