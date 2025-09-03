@@ -9,68 +9,110 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    
+    env:
+      ANDROID_API_LEVEL: "33"
+      BUILD_TOOLS_VERSION: "33.0.2"
+      NDK_VERSION: "25.2.9519653"
+      ANDROID_SDK_ROOT: ${{ github.workspace }}/android-sdk
+
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.8'
-        
-    - name: Install system dependencies
-      run: |
-        sudo apt-get update
-        # Install system build tools and dependencies
-        sudo apt-get install -y build-essential libffi-dev libssl-dev libxml2-dev libxslt1-dev libjpeg8-dev zlib1g-dev git wget unzip
-        # Additional packages needed for Android build
-        sudo apt-get install -y libc6-dev-i386 lib32stdc++6 lib32z1
-        
-    - name: Install Android SDK
-      run: |
-        # Install Android SDK tools
-        sudo apt-get install -y android-sdk
-        # Set environment variables
-        echo "ANDROID_HOME=/usr/lib/android-sdk" >> $GITHUB_ENV
-        echo "PATH=$PATH:/usr/lib/android-sdk/tools:/usr/lib/android-sdk/tools/bin:/usr/lib/android-sdk/platform-tools" >> $GITHUB_ENV
-        
-    - name: Install Python dependencies
-      run: |
-        pip install --upgrade pip
-        pip install Cython==0.29.30
-        pip install pygame
-        pip install kivy==2.1.0
-        pip install buildozer==1.5.0
-        
-    - name: Prepare buildozer.spec
-      run: |
-        cd ${{ github.workspace }}
-        # Ensure SDK license acceptance is set in buildozer.spec
-        if grep -q "android.accept_sdk_license" buildozer.spec; then
-          sed -i 's/android.accept_sdk_license = .*/android.accept_sdk_license = True/g' buildozer.spec
-        else
-          sed -i '/^\[app@debug\]/a android.accept_sdk_license = True' buildozer.spec
-        fi
-        
-    - name: Clean previous builds
-      run: |
-        cd ${{ github.workspace }}
-        rm -rf .buildozer/android/platform/build-*
-        rm -rf .buildozer/android/platform/android-*
-        
-    - name: Setup Android SDK and Accept Licenses
-      run: |
-        # Accept Android SDK licenses
-        echo "y" | sudo sdkmanager --licenses || true
-        
-    - name: Build APK
-      run: |
-        cd ${{ github.workspace }}
-        # Let buildozer install SDK automatically with specific NDK
-        buildozer android debug --verbose
-        
-    - name: Upload APK
-      uses: actions/upload-artifact@v4
-      with:
-        name: gta-ifp-editor-apk
-        path: bin/*.apk
+      - uses: actions/checkout@v4
+
+      - name: Set up Java (JDK 17)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.8"
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential libffi-dev libssl-dev libxml2-dev libxslt1-dev \
+            libjpeg8-dev zlib1g-dev git wget unzip curl \
+            libc6-dev-i386 lib32stdc++6 lib32z1
+
+      - name: Install Android commandline tools
+        run: |
+          mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools"
+          curl -sSL -o cmdline-tools.zip \
+            https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+          unzip -q cmdline-tools.zip -d "$ANDROID_SDK_ROOT/cmdline-tools"
+          mv "$ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools" "$ANDROID_SDK_ROOT/cmdline-tools/latest"
+          echo "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin" >> $GITHUB_PATH
+          echo "$ANDROID_SDK_ROOT/platform-tools" >> $GITHUB_PATH
+          echo "ANDROID_HOME=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
+
+      - name: Install Android packages (platform-tools, build-tools, platform, NDK)
+        run: |
+          sdkmanager --version
+          yes | sdkmanager --licenses
+          sdkmanager \
+            "platform-tools" \
+            "build-tools;${BUILD_TOOLS_VERSION}" \
+            "platforms;android-${ANDROID_API_LEVEL}" \
+            "ndk;${NDK_VERSION}"
+          # Pastikan aidl ada di PATH
+          echo "$ANDROID_SDK_ROOT/build-tools/${BUILD_TOOLS_VERSION}" >> $GITHUB_PATH
+          which aidl || (echo "aidl not found after install" && ls -la "$ANDROID_SDK_ROOT/build-tools/${BUILD_TOOLS_VERSION}" && exit 1)
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install "Cython==0.29.30"
+          pip install "kivy==2.1.0"
+          pip install "buildozer==1.5.0"
+          # pygame tidak dibutuhkan untuk Kivy Android, tapi aman jika ingin tetap diinstall
+          pip install pygame
+
+      - name: Prepare buildozer.spec
+        run: |
+          cd "${{ github.workspace }}"
+          # Set accept license di [app]; jika belum ada, tambahkan
+          if grep -q "^android.accept_sdk_license" buildozer.spec; then
+            sed -i 's/^android.accept_sdk_license.*/android.accept_sdk_license = True/' buildozer.spec
+          else
+            sed -i '/^\[app\]/a android.accept_sdk_license = True' buildozer.spec
+          fi
+          # (Opsional tapi direkomendasikan) set path SDK/NDK & API agar p4a tidak download ulang
+          if ! grep -q "^android.sdk_path" buildozer.spec; then
+            sed -i "/^\[app\]/a android.sdk_path = $ANDROID_SDK_ROOT" buildozer.spec
+          else
+            sed -i "s|^android.sdk_path.*|android.sdk_path = $ANDROID_SDK_ROOT|" buildozer.spec
+          fi
+          if ! grep -q "^android.ndk_path" buildozer.spec; then
+            sed -i "/^\[app\]/a android.ndk_path = $ANDROID_SDK_ROOT/ndk/${NDK_VERSION}" buildozer.spec
+          else
+            sed -i "s|^android.ndk_path.*|android.ndk_path = $ANDROID_SDK_ROOT/ndk/${NDK_VERSION}|" buildozer.spec
+          fi
+          if grep -q "^android.api" buildozer.spec; then
+            sed -i "s/^android.api.*/android.api = ${ANDROID_API_LEVEL}/" buildozer.spec
+          else
+            sed -i "/^\[app\]/a android.api = ${ANDROID_API_LEVEL}" buildozer.spec
+          fi
+
+      - name: Clean previous builds
+        run: |
+          rm -rf .buildozer/android/platform/build-* || true
+          rm -rf .buildozer/android/platform/android-* || true
+          rm -rf bin/*.apk || true
+
+      - name: Build APK (debug)
+        run: |
+          # Pastikan env juga dikenali oleh buildozer/python-for-android
+          export ANDROIDSDK="$ANDROID_SDK_ROOT"
+          export ANDROIDNDK="$ANDROID_SDK_ROOT/ndk/${NDK_VERSION}"
+          export ANDROIDAPI="${ANDROID_API_LEVEL}"
+          export PATH="$ANDROID_SDK_ROOT/build-tools/${BUILD_TOOLS_VERSION}:$PATH"
+          buildozer android debug --verbose
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: gta-ifp-editor-apk
+          path: bin/*.apk
