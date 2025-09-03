@@ -18,13 +18,21 @@ jobs:
       with:
         python-version: '3.8'
         
-    - name: Install Android SDK and dependencies
+    - name: Install system dependencies
       run: |
         sudo apt-get update
-        # Install Android build tools and dependencies
+        # Install system build tools and dependencies
         sudo apt-get install -y build-essential libffi-dev libssl-dev libxml2-dev libxslt1-dev libjpeg8-dev zlib1g-dev git wget unzip
         # Additional packages needed for Android build
         sudo apt-get install -y libc6-dev-i386 lib32stdc++6 lib32z1
+        
+    - name: Install Android SDK
+      run: |
+        # Install Android SDK tools
+        sudo apt-get install -y android-sdk
+        # Set environment variables
+        echo "ANDROID_HOME=/usr/lib/android-sdk" >> $GITHUB_ENV
+        echo "PATH=$PATH:/usr/lib/android-sdk/tools:/usr/lib/android-sdk/tools/bin:/usr/lib/android-sdk/platform-tools" >> $GITHUB_ENV
         
     - name: Install Python dependencies
       run: |
@@ -49,6 +57,11 @@ jobs:
         cd ${{ github.workspace }}
         rm -rf .buildozer/android/platform/build-*
         rm -rf .buildozer/android/platform/android-*
+        
+    - name: Setup Android SDK and Accept Licenses
+      run: |
+        # Accept Android SDK licenses
+        echo "y" | sudo sdkmanager --licenses || true
         
     - name: Build APK
       run: |
